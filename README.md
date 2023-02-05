@@ -11,9 +11,9 @@ area where that species has been observed.
 
 [Click here to run application](https://slmcrae.shinyapps.io/frog/)
 
-[Click here to view rshiny code](https://github.com/slmcrae/portfolio_projects/blob/master/frog/app.R)
+[Click here to view rshiny code](https://github.com/slmcrae/frog/blob/master/app.R)
 
-[Click here to view data cleaning and exploration file](https://github.com/slmcrae/portfolio_projects/blob/master/frog/frog_census_data_cleaning.Rmd)
+[Click here to view data cleaning and exploration file](https://github.com/slmcrae/frog/blob/master/frog_census_data_cleaning.Rmd)
 
 ## Background
 
