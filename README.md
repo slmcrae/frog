@@ -1,4 +1,4 @@
-_Date_ _created:__5th_ _February_ _2023_
+_5th_ _February_ _2023_
 
 # Frog Census Data Exploration App
 
