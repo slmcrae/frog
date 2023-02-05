@@ -1,0 +1,469 @@
+---
+title: "Frogs"
+author: "SMcRae"
+date: "16/07/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Melbourne Water Frog Census Data Exploration
+
+The following code chunk reads the .csv file, corrects some spellings of some names of species, formats the date column, converts the data to a dataframe, and creates a new column each for year and month. 
+
+Entries in the "Type_of_observation" are then collated into larger groups to reduce the number of levels in this variable.  For example, 'frog census - sound r' and 'frog census (AVW code' are edited to simply 'frog census'. 
+
+
+```{r warning=FALSE}
+# Bar chart of types of observations recorded from 2001:
+# Not including types that have less than 100 counts
+library(readr)
+library(magrittr)
+library(dplyr)
+library(lubridate)
+
+# read in dataset
+frogs <- read.csv("C:/Users/SMcRae/udacity-git-course/portfolio_projects/frog/Frog_Census_Records.csv")
+View(frogs)
+# renaming the weird first column which gets changed when data is uploaded;
+#frogs <- frogs %>% rename(X = ï..X)
+
+# Data Cleaning
+# =============
+# correct error in Person's Tree frog entries:
+frogs["Common_name"][frogs["Common_name"]=="PeronÃ¢â‚¬â„¢s Tree Frog"] <-"Peron's Tree Frog" 
+frogs["Common_name"][frogs["Common_name"]=="Peronâ€™s Tree Frog"] <-"Peron's Tree Frog" 
+frogs["Common_name"][frogs["Common_name"]=="Growling grass frog"] <-"Growling Grass Frog" 
+# using lubridate
+# remove the hours and minutes from date field:
+frogs$Date <- gsub(x=frogs$Date,pattern=" 0:00",replacement="",fixed=T)
+# convert date field to date class:
+frogs$Date <- as.Date(frogs$Date, format = "%d/%m/%Y") 
+# convert data set to data frame:
+frogs.df <- as.data.frame(frogs)
+# split date into 2 columns for  month and year
+frogs.df <- frogs.df %>% mutate(year=format(Date, "%Y"), month=format(Date, "%m"))
+
+# Collate some types of observations as the spelling is similar:
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Incidental record"] <-"Incidental" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="General observation ("] <-"General Observations" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]==""] <-"unknown" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Birds Australia incid"] <-"Birds Australia" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Birds Australia 5km a"] <-"Birds Australia" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Birds Australia 500m"] <-"Birds Australia" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Owl census"] <-"Bird Survey" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Bird transect"] <-"Bird Survey" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Heard during bird sur"] <-"Bird Survey" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Timed bird census"] <-"Bird Survey" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Bird count"] <-"Bird Survey" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Opportunistic recordi"] <-"Opportunistic Recording" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Opportunistic Recordi"] <-"Opportunistic Recording" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Frog census (AVW code"] <-"Frog Census" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Frog census - sound r"] <-"Frog Census"
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Frog census (AVW code"] <-"Frog Census" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Frog Census - sound r"] <-"Frog Census" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Frog census"] <-"Frog Census" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Spotlighting on foot"] <-"Spotlighting" 
+frogs.df["Type_of_observation"][frogs.df["Type_of_observation"]=="Spotlighting by area"] <-"Spotlighting" 
+
+
+```
+
+The new newly cleaned dataframe (frogs.df) is filtered for years greater than 2000 and then saved as frogs_2001.csv.
+```{r}
+frogs_2001 <- frogs.df %>% filter(year>2000)
+write.csv(frogs_2001,"C:/Users/SMcRae/udacity-git-course/portfolio_projects/frog/frogs_2001.csv", row.names = FALSE)
+View(frogs_2001)
+```
+
+Missing values are confirmed to be zero.
+A list of all frog species from the post-2001 data is printed to check for any further spelling errors.
+
+```{r}
+# check for missing values:
+sum(is.na(frogs.df))
+# removing all data from before 2001
+#frogs_2001 <- frogs.df %>% filter(year>2000)
+#level <- unique(frogs_2001["Common_name"])
+species_all <- levels(factor(frogs$Common_name))
+species <- levels(factor(frogs_2001$Common_name))
+#View(species)
+#class(level)
+#level[,1]
+
+#class(species)
+species
+
+```
+Creation of the original ggplot that was used to create the interactive one used in the app.
+
+libraries install, oz_states created to get map of Melbourne and surrounds.
+
+```{r, include=FALSE}
+library(devtools)
+install_github("mdsumner/ozmaps")
+library(sf)
+library(ozmaps)
+#states <- ozmaps::ozmap_states
+oz_states <- ozmaps::ozmap_states %>% filter(NAME != "Other Territories")
+library(ggplot2)
+```
+
+ggplot with map as background showing points of latitude and longitude of each observation in the dataset color coded for each species.
+```{r, echo=FALSE}
+ggplot() + 
+  geom_sf(data=oz_states, color="black", fill="white") +
+  geom_point(data=frogs_2001, mapping=aes(x=Longitude, y=Latitude, color=Common_name),
+                                      size=0.5,show.legend=TRUE ) +
+  labs(title="Frog Observations around Melbourne (2001-2018)", x="Longitude", 
+       caption="Data Source: Data Vic")+
+  theme(plot.title=element_text(hjust=0.5), 
+        plot.caption=element_text(hjust=0, face="italic"))+
+  coord_sf(xlim = c(143.5542, 146.4239), ylim = c(-39.07316, -37.01971))
+
+
+
+
+```
+
+
+
+This dataset includes a field for 'type of observation'. This field can be used to identify the data that is most likely associated with the frog census. There are 57 different types of observations. However, distinctions between the types are not always clear. 
+
+The earliest observation dates back to the 15th of January, 1960. Observations before 2001 were left out of this study because they were not part of the frog census and are perhaps less likely to be accurate.
+
+Since 2001, at least 47.11% of observations have been part of a frog census and have been coded as either "frog census", "frog census AVW", and "frog census-sound recording".  Recordings in which the type of observation was left blank account for 20.93%. Other common types of observations include Opportunistic recording 6.67%, General Observations 6.62%, "Heard during bird survey" at 6.43%. 
+
+The code chunk below produces a bar chart of the 8 most common types of observations in the data from 2001.
+
+```{r}
+
+
+# grouping by total type of observations:
+obs_types_totals <- frogs_2001 %>% group_by(Type_of_observation) %>% summarise(Count=n())
+# ordering the obs_types_totals to get most common types:
+top_types <- obs_types_totals[order(-obs_types_totals$Count),]
+# limiting list to top 8:
+top_8_types <- head(top_types, 8)
+#View(top_8_types)
+# Plotting results:
+library(ggplot2)
+
+frog.plot1 <-ggplot(data=top_8_types, aes(x=Type_of_observation, 
+                                          y=Count)) +
+  geom_bar(stat="identity", width=0.95, fill="seagreen2",col="black") +
+  scale_x_discrete(limit=c("Spotlighting","Frog survey","Incidental",
+                          "General observations","Opportunistic Recording","Bird Survey",
+                          "unknown","Frog Census"),
+                   labels=c("Spotlighting","Frog Survey","Incidental","General",
+                            "Opportunistic","Bird Survey","Unknown", "Frog Census"))+
+  labs(title="Most Common Observation Types", x=NULL, caption="Data Source: Data Vic")+
+  theme(plot.title=element_text(hjust=0.5), 
+        plot.caption=element_text(hjust=0,face="italic"),
+        panel.background=element_blank(),
+        axis.line=element_line(color="black"),
+        panel.grid.major=element_line(color="grey91"))+
+  coord_flip()
+frog.plot1
+
+```
+
+
+#Observations before 2001
+79.23% of observations before 2001 are listed as incidental, 8.72% are coded as general observations and 4.64% as spotlighting. As only 0.04% are coded as blank. It could be that unknown observation types were coded as incidental. 
+
+The following bar chart shows the top 4 observations types for pre-2001 data, a list of the top 7 and a count of total observations in this dataset.
+```{r}
+# bar chart of different observations using data before 2001.
+frogs_pre2001 <- frogs.df %>% filter(year<2001)
+
+types_totals_pre2001 <- frogs_pre2001 %>% group_by(Type_of_observation) %>% summarise(Count=n())
+View(types_totals_pre2001)
+#counting total observations before 2001
+frogs_pre2001 %>% summarise(Count=n())
+# checking that no obs have been accidently deleted during processing:
+# ordering the obs_types_totals to get most common types:
+top_types_pre2001 <- types_totals_pre2001[order(-types_totals_pre2001$Count),]
+View(top_types_pre2001)
+
+top_4_types <- head(top_types_pre2001, 4)
+View(top_7_types)
+## Plotting observation types before 2001:
+frog.plot2 <-ggplot(data=top_7_types,aes(x=Type_of_observation,y=Count))+
+                    geom_bar(stat="identity", width=0.80, fill="seagreen2",col="black") +
+                     scale_x_discrete(limit=c("Frog Census", "Spotlighting","General observations", "Incidental"),
+                      labels=c("Frog Census", "Spotlighting", "General","Incidental"))+
+                    labs(title="Most Common Observation Types pre-2001",
+                        x=NULL, caption="Data Source: Data Vic")+
+              theme(plot.title=element_text(hjust=0.5), 
+                     plot.caption=element_text(hjust=0, face="italic"),
+                     panel.background=element_blank(),
+                      axis.line=element_line(color="black"),
+                      panel.grid.major=element_line(color="grey91"))+
+              coord_flip()
+frog.plot2
+```
+
+## Frog Census Date Compared with Other Data
+
+Only 18 frog species were noted prior to 2001. There are a total of 22 frog species in the dataset.
+
+Looking at a plot of the frog census data versus the other data that has been collected we can immediately see a sharp increase at 2017. There was a noted spike in data collection as part of the frog census because of the enthusiastic adoption of Melbourne Water's frog watch app. Over time data may have been coded differently so it is not possible to say for sure which data was linked to the frog census efforts, especially as so much data has been coded as general
+
+```{r}
+# create data set with only observations type as frog census
+frog_census <- frogs.df %>% filter(Type_of_observation=="Frog Census")
+# create data set excluding frog census observation type
+other <- frogs.df %>% filter(Type_of_observation!="Frog Census")
+# group new datasets by year for plotting
+census_yearly <- frog_census %>% group_by(year) %>% summarise(Count=n())
+other_yearly <- other %>% group_by(year) %>% summarise(Count=n())
+# merge the census yearly and the other yearly onto the same dataset
+yearly <- merge(x=census_yearly,y=other_yearly, by="year", all.x=TRUE) 
+# Rename count Columns:
+yearly <- yearly %>% rename(Census=Count.x, Other=Count.y)
+# replace NA with 0 in Other column (frog census data includes all years):
+yearly$Other[is.na(yearly$Other)]<- 0
+#convert year to date class:
+yearly$year <- as.numeric(yearly$year)
+# filter data <2001
+yearly <- yearly %>% filter(year>2000)
+# Collapse two variables of census and other into one variable:
+library("tidyverse")
+yearly <- yearly %>%
+  select(year, Census, Other) %>%
+  gather(key = "Group", value = "Count", -year)
+# create line plot for census and other data by year:
+# first prep for the x axis to be continous and only show every 5 years;
+# set a sequence for the number of breaks ie; every year
+breaks <-seq(2001,2018,by=1)
+# create a function that puts labels only on every 5 years
+label_list <- vector(mode="list", length=length(breaks))
+i <- 1
+for (date in breaks){
+  if (date%%5==0){
+    label_list[[i]] <- date
+  }
+  i <- i+1
+}
+library(ggplot2)
+ggplot(yearly,aes(x = year , y=Count)) + 
+  geom_line(aes(color = Group, linetype = Group, group=Group)) + 
+  scale_color_manual(values = c("#009E73", "#CC79A7"))+
+  labs(title="Frog Census Vs. Other Data", x=NULL, caption="Data Source: Data Vic")+
+  theme(plot.title=element_text(hjust=0.5), plot.caption=element_text(hjust=0, face="italic"),
+           panel.background=element_blank(), axis.line=element_line(color="black"),
+          panel.grid.major=element_line(color="grey91"))+
+  scale_x_continuous(breaks=breaks, labels=label_list)
+
+
+```
+A bar chart communicating the same info as in the previous line plot:
+```{r}
+# percentage stacked bar plot:
+ggplot(yearly,aes(x = year , y=Count, fill=Group)) + 
+  geom_bar(position="fill", stat="identity") +
+  labs(title="Frog Census Vs. Other Data", x=NULL, caption="Data Source: Data Vic",
+       y=NULL) +
+  theme(plot.title=element_text(hjust=0.5), plot.caption=element_text(hjust=0, face="italic"),panel.border=element_rect(color="black",fill=NA),
+          panel.background=element_blank(), axis.line=element_line(color="black"),
+          panel.grid.major=element_line(color="grey91"))+
+  scale_x_continuous(breaks=breaks, labels=label_list)+
+  scale_y_continuous(breaks=c(0.25, 0.50, 0.75, 1.00), labels=c("25%","50%","75%","100%"))
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r}
+# create dataframe that includes type of observation, species and count
+frogs_grp <- frogs.df %>% group_by(year, Common_name) %>% summarise(Count=n())
+# format year as numeric for ease of plotting
+frogs_grp$year <- as.numeric(frogs_grp$year)
+
+
+
+```
+A stack bar chart showing the observations percentages of each of the top 7 most commonly observed frogs from 1960 to 2018.
+```{r}
+# create a list of top frogs
+top_frogs <- frogs.df %>% group_by(Common_name) %>% summarise(Count=n())
+top_frogs_2001 <- frogs_2001 %>% group_by(Common_name) %>% summarise(Count=n())
+View(top_frogs)
+View(top_frogs_2001)
+# order frog list with most common at top
+top_frogs <- top_frogs[order(-top_frogs$Count),]
+# shorten to top 7
+top_frogs <- head(top_frogs,7)
+test <- as.list(top_frogs$Common_name)
+test <- append(test, "All")
+View(test)
+# filter the frogs_grp data to include only the top frogs
+frogs_top <- frogs_grp %>% filter(Common_name %in% c(as.list(top_frogs$Common_name)))
+# prep for x axis labelling:
+# set a sequence for the number of breaks ie; every year
+breaks2 <-seq(min(frogs_top$year),2018,by=1)
+# create a function that puts labels only on every 5 years
+label_list2 <- vector(mode="list", length=length(breaks2))
+i <- 1
+for (date in breaks2){
+  if (date%%5==0){
+    label_list2[[i]] <- date
+  }
+  i <- i+1
+}
+# set up colorblind friendly palette:
+cbPalette1 <- c("plum2", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# line plot to show observations over time
+ggplot(frogs_top,aes(x = year , y=Count, fill=Common_name)) + 
+  geom_bar(stat="identity", position="fill") + 
+  labs(title="Observations of Most Common Species", x=NULL, y=NULL,caption="Data Source: Data Vic", fill="Frog Species")+
+  theme(plot.title=element_text(hjust=0.5), plot.caption=element_text(hjust=0, face="italic"),legend.title.align = 0.3,
+        panel.background=element_blank(),axis.text.x=element_text(angle=45, hjust=1),
+        panel.grid.major=element_line(color="grey91"),panel.border=element_rect(color="black", fill=NA),
+        axis.line=element_line(color="black"))+
+   scale_x_continuous(breaks=breaks2, labels=label_list2)+
+  scale_y_continuous(breaks=c(0.25, 0.50, 0.75, 1.00), labels=c("25%","50%","75%","100%"))+
+scale_fill_manual(values=cbPalette1)
+
+```
+A stack bar chart showing the 8 least observed species of frogs from 1960 to 2018:
+```{r}
+library(ggplot2)
+# show a graph with all the least observed frogs since 1960 (excluding those with less than 5 sightings)
+# group by common name
+low_frogs <- frogs.df %>% group_by(Common_name) %>% summarise(Count=n())
+# order frog list
+low_frogs <- low_frogs[order(low_frogs$Count),]
+# filter the 3 least observed frogs as they only have 1 or 2 obs
+low_frogs <- low_frogs %>% filter(Count>2)
+# bottom to top 10
+low_frogs <- head(low_frogs,8)
+# creating a list of names to use as different series in a line plot
+frogs_low <- frogs_grp %>% filter(Common_name %in% c(as.list(low_frogs$Common_name)))
+# prep for x axis labelling:
+# set a sequence for the number of breaks ie; every year
+breaks3 <-seq(min(frogs_low$year),2018,by=1)
+# create a function that puts labels only on every 5 years
+label_list3 <- vector(mode="list", length=length(breaks3))
+i <- 1
+for (date in breaks3){
+  if (date%%5==0){
+    label_list3[[i]] <- date
+  }
+  i <- i+1
+}
+# set up colorblind friendly palette:
+cbPalette <- c("aquamarine", "darkorange1", "seagreen2", "#009E73", "#F0E442", "#0072B2", "#D55E00", "plum")
+# Plot the thing:
+ggplot(frogs_low,aes(x = year , y=Count, fill=Common_name)) + 
+  geom_bar(stat="identity", position="fill") + 
+  labs(title="Observations of Least Common Species", x=NULL, caption="Data Source: Data Vic",fill="Frog Species")+
+  theme(plot.title=element_text(hjust=0.5), plot.caption=element_text(hjust=0, face="italic"), panel.border=element_rect(color="black", fill=NA),
+        panel.background=element_blank(),axis.text.x=element_text(angle=45, hjust=1),
+        panel.grid.major=element_line(color="grey91"), legend.title.align=0.3,
+        axis.line=element_line(color="black"))+
+  scale_x_continuous(breaks=breaks3, labels=label_list3) +
+  scale_y_continuous(breaks=c(0.25,0.50,0.75,1.00), labels=c("25%","50%","75%","100%"))+
+  scale_fill_manual(values=cbPalette)
+
+```
+
+## Less observed frogs:
+Peron's Tree Frog shows increase in observations since 2001, especially in 2017. A bumper year for observations.
+Plains Brown frog hasn't been seen since 2008.
+Dendy's Toadlet not seen since 2009.
+
+Create plots for the least observed frogs from 1960 to 2018 that show number of observations per year.
+Filter data:
+```{r}
+# create plot with frogs displayed
+#exploring individual frogs:
+# create a list of the 8 least observed frogs:
+less_frogs_list <- as.list(low_frogs$Common_name)
+View(less_frogs_list)
+# create program that generates data frame of observations for all least obs frogs
+# first a data frame with only dates from 1960 to 2001
+species_count <-as.data.frame(c(1960:2018))
+# rename column to year:
+species_count<- species_count %>% rename(year="c(1960:2018)")
+# now filter for each frog in least observed list and add count to species count:
+i <- 1
+for (frog in less_frogs_list){
+  # create data frame of specific frog counts and year
+  line <- as.data.frame(frogs_grp %>% filter(Common_name==frog))
+  # merge line df with original date data frame
+  species_count <- merge(x=species_count,y=line, by='year',all.x=TRUE)
+  # change NA counts to 0
+  species_count$Count[is.na(species_count$Count)] <- 0
+  # change the name of count column to specific frog
+  names(species_count)[names(species_count) == "Count"] <-less_frogs_list[i]
+  # remove the Common_name column
+  species_count <- subset(species_count,select= -c(Common_name))
+  i = i+1
+}
+
+```
+
+libraries to create grid of frog plots
+```{r}
+# create plot with 4 frogs displayed
+library(ggplot2)
+library(devtools)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+library(ggplotify)
+library(cowplot)
+```
+
+Create the individual plots. (grid display will not be used because they will be too small)
+```{r}
+
+# create empty list to hold names of plots:
+plot_list <- vector(mode="list", 8)
+
+# create sequence of breaks from year of first observation to 2018
+breaks5 <-seq(min(species_count$year),2018,by=1)
+# function that puts x axis labels only on every 5 years
+label_list5 <- vector(mode="list", length=length(breaks5))
+
+i <- 1
+for (date in breaks5){
+  if (date%%5==0){
+    label_list5[[i]] <- date
+  }
+  i <- i+1
+}
+
+species<-2
+# for loop to create plots from all species
+for(frog in less_frogs_list){
+    # select the year and frog from species_count
+  select <- species_count[,c(1,species)]
+  # the actual plot:
+  frog_plot <- ggplot(select,aes(x = year , y=select[,2])) + 
+          geom_bar(stat="identity",color = "grey51", fill="palegreen3") + 
+          labs(title=colnames(select[2]), x=NULL, y="Count", caption="Data Source: Data Vic",
+          color="Frog Species")+
+          theme(plot.title=element_text(hjust=0.5),plot.caption=element_text(hjust=0,face="italic"), panel.border=element_rect(color="black",fill=NA),
+          panel.background=element_blank(),axis.text.x=element_text(angle=45, hjust=1),
+          panel.grid.major=element_line(color="grey91"),
+          axis.line=element_line(color="black"))+
+          scale_x_continuous(breaks=breaks5, labels=label_list5)
+  plot(frog_plot)
+  plot_list[[species-1]]<-frog_plot
+  species=species+1
+ 
+}
+# save plots to pdf:
+#pdf("plots.pdf")
+#for (i in 1:8) {
+#    print(plot_list[[i]])
+#}
+#dev.off()
+```
