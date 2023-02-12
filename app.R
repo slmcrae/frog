@@ -39,7 +39,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       sliderInput("year", "Select Year:", sep="", min = 2001, max = 2018, value = 2017),
-      selectInput("species", label="Select Species:", choices=species_list),
+      selectInput("species", label="Select Species:", selected="All", choices=species_list),
       imageOutput("frog_img")
     ),
   mainPanel(
@@ -69,12 +69,12 @@ server <- function(input, output) {
             axis.title = element_text(size = 15))+
       coord_sf(xlim = c(143.5542, 146.4239), ylim = c(-39.07316, -37.01971))+
       annotate("text", x=144.12, y=-38.1493, label= "Geelong")+
-      annotate("text", x=146.1, y=-39.0, label= "Wilson's Promontory")+
+      annotate("text", x=146.05, y=-39.0, label= "Wilson's Promontory")+
       annotate("text", x=145.9090, y=-37.2346, label= "Eildon")+
       annotate("text", x=143.8503, y=-37.5622, label= "Ballarat")+
       annotate("text", x=146.3, y=-38.1940, label= "Traralgon")+
       annotate("text", x=144.2172, y=-37.0633, label= "Castlemaine")+
-      annotate("text", x=143.7, y=-38.9, label= "Cape Otway")
+      annotate("text", x=143.76, y=-38.9, label= "Cape Otway")
   })
   output$frog_img <- renderImage({
     if (input$species=="Eastern Banjo Frog"){
